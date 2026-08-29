@@ -1,8 +1,9 @@
 package com.example.committeespinner;
-import android.os.Bundle;
+
 import android.animation.*;
 import android.app.*;
 import android.content.*;
+import android.os.Bundle;
 import android.graphics.*;
 import android.graphics.drawable.ColorDrawable;
 import android.view.*;
@@ -353,6 +354,7 @@ public class MainActivity extends Activity {
         namesBox.removeAllViews();
 
         for (int i = 0; i < all.size(); i++) {
+            final int memberIndex = i;
             final String original = all.get(i);
 
             LinearLayout row = new LinearLayout(this);
@@ -366,18 +368,64 @@ public class MainActivity extends Activity {
             name.setText(original);
             name.setTextSize(17);
             name.setSingleLine(true);
+            name.setTag(original);
             row.addView(name, new LinearLayout.LayoutParams(0, dp(56), 1));
 
             Button saveName = navButton("Save");
-            Button del = navButton("Delete");
+            saveName.setVisibility(View.GONE);
             row.addView(saveName, new LinearLayout.LayoutParams(dp(68), dp(56)));
+
+            TextView saved = label("Saved", 14);
+            saved.setGravity(Gravity.CENTER);
+            saved.setTextColor(Color.rgb(40, 140, 75));
+            saved.setVisibility(View.GONE);
+            row.addView(saved, new LinearLayout.LayoutParams(dp(68), dp(56)));
+
+            Button del = navButton("Delete");
             row.addView(del, new LinearLayout.LayoutParams(dp(78), dp(56)));
 
-            saveName.setOnClickListener(v ->
-                    renameMember(original, name.getText().toString()));
+            name.addTextChangedListener(new android.text.TextWatcher() {
+                @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+                @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                    String current = s.toString().trim();
+                    String baseline = String.valueOf(name.getTag());
+                    boolean changed = !current.equals(baseline);
+                    saveName.setVisibility(changed ? View.VISIBLE : View.GONE);
+                    if (changed) saved.setVisibility(View.GONE);
+                }
+                @Override public void afterTextChanged(android.text.Editable s) {}
+            });
+
+            saveName.setOnClickListener(v -> {
+                String newName = name.getText().toString().trim();
+                String oldName = String.valueOf(name.getTag());
+
+                if (newName.isEmpty()) {
+                    toast("Name cannot be empty");
+                    name.setText(oldName);
+                    return;
+                }
+
+                for (int j = 0; j < all.size(); j++) {
+                    if (j != memberIndex && all.get(j).equalsIgnoreCase(newName)) {
+                        toast("This name already exists");
+                        name.setText(oldName);
+                        return;
+                    }
+                }
+
+                if (memberIndex < all.size()) all.set(memberIndex, newName);
+                int r = remaining.indexOf(oldName);
+                if (r >= 0) remaining.set(r, newName);
+
+                name.setTag(newName);
+                saveName.setVisibility(View.GONE);
+                saved.setVisibility(View.VISIBLE);
+                save();
+                if (wheel != null) wheel.setMembers(remaining);
+            });
 
             del.setOnClickListener(v -> deleteMember(original));
-
             namesBox.addView(row);
         }
     }
