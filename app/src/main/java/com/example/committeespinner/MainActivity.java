@@ -17,7 +17,7 @@ public class MainActivity extends Activity {
     EditText monthsInput, personInput;
     TextView winner;
     WheelView wheel;
-    Button spinButton, spinnerTab, membersTab;
+    Button spinnerTab, membersTab;
 
     ArrayList<String> all = new ArrayList<>();
     ArrayList<String> remaining = new ArrayList<>();
@@ -110,7 +110,7 @@ public class MainActivity extends Activity {
         monthRow.addView(setMonthsButton, new LinearLayout.LayoutParams(dp(85), dp(54)));
         monthCard.addView(monthRow);
 
-        p.addView(monthCard, new LinearLayout.LayoutParams(-1, dp(130)));
+        pageMembers.addView(monthCard, new LinearLayout.LayoutParams(-1, dp(130)));
 
         setMonthsButton.setOnClickListener(v -> setMonths());
 
@@ -200,7 +200,7 @@ public class MainActivity extends Activity {
         history.clear();
         winner.setText("Ready");
         save();
-        refreshAll();
+        refresh();
     }
 
     void addName() {
@@ -229,7 +229,6 @@ public class MainActivity extends Activity {
         wheel.stopAnimation();
         wheel.setMembers(remaining);
         spinning = false;
-        spinButton.setEnabled(remaining.size() > 1);
         refresh();
         save();
     }
@@ -348,6 +347,8 @@ public class MainActivity extends Activity {
     void refresh() {
         if (namesBox == null) return;
 
+        if (monthsInput != null) monthsInput.setText(String.valueOf(selectedMonths));
+
         namesBox.removeAllViews();
 
         for (int i = 0; i < all.size(); i++) {
@@ -415,6 +416,7 @@ public class MainActivity extends Activity {
 
     void save() {
         getPreferences(0).edit()
+                .putInt("months", selectedMonths)
                 .putString("all", String.join("\u001F", all))
                 .putString("remaining", String.join("\u001F", remaining))
                 .putString("history", String.join("\u001F", history))
@@ -423,6 +425,8 @@ public class MainActivity extends Activity {
 
     void load() {
         android.content.SharedPreferences p = getPreferences(0);
+
+        selectedMonths = p.getInt("months", 10);
 
         String a = p.getString("all", "");
         String r = p.getString("remaining", "");
@@ -444,8 +448,6 @@ public class MainActivity extends Activity {
         wheel.setMembers(remaining);
         refresh();
 
-        if (remaining.size() > 1) 
-        else 
     }
 
     // =========================================================
