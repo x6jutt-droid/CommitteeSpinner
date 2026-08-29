@@ -2,7 +2,6 @@ package com.example.committeespinner;
 
 import android.animation.*;
 import android.app.*;
-import android.os.*;
 import android.content.*;
 import android.graphics.*;
 import android.graphics.drawable.ColorDrawable;
@@ -13,405 +12,485 @@ import java.util.*;
 
 public class MainActivity extends Activity {
 
-    LinearLayout root, pageSpinner, pageMembers, namesBox, historyBox;
-    EditText monthsInput, personInput;
-    TextView winner;
+    LinearLayout root, content, monthsPage, membersPage, wheelPage, historyPage;
+    LinearLayout namesBox, historyBox;
+    TextView monthValue, memberCount, wheelStatus, winnerText, historyCount;
+    EditText personInput;
     WheelView wheel;
-    Button spinnerTab, membersTab;
+
+    Button monthsTab, membersTab, wheelTab, historyTab;
 
     ArrayList<String> all = new ArrayList<>();
     ArrayList<String> remaining = new ArrayList<>();
     ArrayList<String> history = new ArrayList<>();
 
-    Random random = new Random();
-    int selectedMonths = 10;
+    int selectedMonths = 12;
     boolean spinning = false;
+    Random random = new Random();
 
     int dp(float n) {
-        return (int)(n * getResources().getDisplayMetrics().density + .5f);
+        return (int)(n * getResources().getDisplayMetrics().density + 0.5f);
     }
 
-    TextView tv(String s, int size) {
+    TextView label(String s, float size) {
         TextView t = new TextView(this);
         t.setText(s);
         t.setTextSize(size);
-        t.setTextColor(Color.rgb(35,35,35));
-        t.setPadding(dp(8), dp(8), dp(8), dp(8));
+        t.setTextColor(Color.rgb(35, 38, 48));
+        t.setPadding(dp(8), dp(7), dp(8), dp(7));
         return t;
     }
 
-    Button btn(String s) {
+    Button navButton(String s) {
         Button b = new Button(this);
         b.setText(s);
+        b.setTextSize(13);
+        b.setAllCaps(false);
+        return b;
+    }
+
+    Button actionButton(String s) {
+        Button b = new Button(this);
+        b.setText(s);
+        b.setTextSize(16);
+        b.setAllCaps(false);
         return b;
     }
 
     @Override
-    public void onCreate(Bundle b) {
-        super.onCreate(b);
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        load();
         build();
+        refreshAll();
+        showPage("months");
     }
 
     void build() {
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(10), dp(8), dp(10), dp(8));
+        root.setPadding(dp(8), dp(8), dp(8), dp(8));
+        root.setBackgroundColor(Color.rgb(247, 248, 252));
+
+        content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        root.addView(content, new LinearLayout.LayoutParams(-1, 0, 1));
+
+        buildMonthsPage();
+        buildMembersPage();
+        buildWheelPage();
+        buildHistoryPage();
 
         LinearLayout nav = new LinearLayout(this);
         nav.setOrientation(LinearLayout.HORIZONTAL);
+        nav.setPadding(0, dp(6), 0, 0);
 
-        spinnerTab = btn("🎡 Spinner");
-        membersTab = btn("👥 Members");
+        monthsTab = navButton("📅\nMonths");
+        membersTab = navButton("👥\nMembers");
+        wheelTab = navButton("🎡\nWheel");
+        historyTab = navButton("📜\nHistory");
 
-        nav.addView(spinnerTab, new LinearLayout.LayoutParams(0, dp(56), 1));
-        nav.addView(membersTab, new LinearLayout.LayoutParams(0, dp(56), 1));
+        nav.addView(monthsTab, new LinearLayout.LayoutParams(0, dp(62), 1));
+        nav.addView(membersTab, new LinearLayout.LayoutParams(0, dp(62), 1));
+        nav.addView(wheelTab, new LinearLayout.LayoutParams(0, dp(62), 1));
+        nav.addView(historyTab, new LinearLayout.LayoutParams(0, dp(62), 1));
+
         root.addView(nav);
 
-        pageSpinner = new LinearLayout(this);
-        pageSpinner.setOrientation(LinearLayout.VERTICAL);
-        pageSpinner.setGravity(Gravity.CENTER_HORIZONTAL);
-
-        TextView spinnerTitle = tv("🎡 Committee Lucky Draw", 27);
-        spinnerTitle.setGravity(Gravity.CENTER);
-        pageSpinner.addView(spinnerTitle);
-
-        wheel = new WheelView(this);
-        pageSpinner.addView(wheel, new LinearLayout.LayoutParams(-1, dp(370)));
-
-        winner = tv("Ready", 21);
-        winner.setGravity(Gravity.CENTER);
-        pageSpinner.addView(winner, new LinearLayout.LayoutParams(-1, dp(62)));
-
-        root.addView(pageSpinner, new LinearLayout.LayoutParams(-1, 0, 1));
-
-        pageMembers = new LinearLayout(this);
-        pageMembers.setOrientation(LinearLayout.VERTICAL);
-
-        TextView membersTitle = tv("👥 Committee Members", 25);
-        membersTitle.setGravity(Gravity.CENTER);
-        pageMembers.addView(membersTitle);
-
-        LinearLayout monthCard = new LinearLayout(this);
-        monthCard.setOrientation(LinearLayout.VERTICAL);
-        monthCard.setPadding(dp(12), dp(8), dp(12), dp(8));
-        monthCard.setBackgroundColor(Color.WHITE);
-
-        TextView monthTitle = tv("Number of months / members", 15);
-        monthCard.addView(monthTitle);
-
-        LinearLayout monthRow = new LinearLayout(this);
-        monthsInput = new EditText(this);
-        monthsInput.setHint("e.g. 12");
-        monthsInput.setInputType(2);
-        monthsInput.setSingleLine(true);
-        monthRow.addView(monthsInput, new LinearLayout.LayoutParams(0, dp(54), 1));
-
-        Button setMonthsButton = btn("Set");
-        monthRow.addView(setMonthsButton, new LinearLayout.LayoutParams(dp(85), dp(54)));
-        monthCard.addView(monthRow);
-
-        pageMembers.addView(monthCard, new LinearLayout.LayoutParams(-1, dp(130)));
-
-        setMonthsButton.setOnClickListener(v -> setMonths());
-
-        LinearLayout add = new LinearLayout(this);
-        personInput = new EditText(this);
-        personInput.setHint("Enter member name");
-        personInput.setSingleLine(true);
-        add.addView(personInput, new LinearLayout.LayoutParams(0, dp(58), 1));
-
-        Button addBtn = btn("Add");
-        add.addView(addBtn, new LinearLayout.LayoutParams(dp(90), dp(58)));
-        pageMembers.addView(add);
-
-        addBtn.setOnClickListener(v -> addName());
-
-        ScrollView memberScroll = new ScrollView(this);
-        namesBox = new LinearLayout(this);
-        namesBox.setOrientation(LinearLayout.VERTICAL);
-        memberScroll.addView(namesBox);
-        pageMembers.addView(memberScroll, new LinearLayout.LayoutParams(-1, 0, 1));
-
-        Button reset = btn("↻  Reset");
-        pageMembers.addView(reset, new LinearLayout.LayoutParams(-1, dp(58)));
-        reset.setOnClickListener(v -> resetCommittee());
-
-        TextView historyTitle = tv("History", 19);
-        pageMembers.addView(historyTitle);
-
-        ScrollView historyScroll = new ScrollView(this);
-        historyBox = new LinearLayout(this);
-        historyBox.setOrientation(LinearLayout.VERTICAL);
-        historyScroll.addView(historyBox);
-        pageMembers.addView(historyScroll, new LinearLayout.LayoutParams(-1, dp(150)));
-
-        root.addView(pageMembers, new LinearLayout.LayoutParams(-1, 0, 1));
-
-        spinnerTab.setOnClickListener(v -> showSpinnerPage());
-        membersTab.setOnClickListener(v -> showMembersPage());
+        monthsTab.setOnClickListener(v -> showPage("months"));
+        membersTab.setOnClickListener(v -> showPage("members"));
+        wheelTab.setOnClickListener(v -> showPage("wheel"));
+        historyTab.setOnClickListener(v -> showPage("history"));
 
         setContentView(root);
-        showSpinnerPage();
-        load();
     }
 
-    void showSpinnerPage() {
-        pageSpinner.setVisibility(View.VISIBLE);
-        pageMembers.setVisibility(View.GONE);
-        spinnerTab.setEnabled(false);
-        membersTab.setEnabled(true);
+    void buildMonthsPage() {
+        monthsPage = page();
+        monthsPage.setGravity(Gravity.CENTER_HORIZONTAL);
+
+        TextView title = label("📅  Select Months", 29);
+        title.setGravity(Gravity.CENTER);
+        monthsPage.addView(title, new LinearLayout.LayoutParams(-1, dp(70)));
+
+        TextView sub = label("Choose how many months are in the committee draw.", 15);
+        sub.setGravity(Gravity.CENTER);
+        monthsPage.addView(sub);
+
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setGravity(Gravity.CENTER);
+        card.setPadding(dp(20), dp(20), dp(20), dp(20));
+        card.setBackgroundColor(Color.WHITE);
+
+        TextView selected = label("Selected months", 17);
+        selected.setGravity(Gravity.CENTER);
+        card.addView(selected);
+
+        monthValue = label(String.valueOf(selectedMonths), 54);
+        monthValue.setGravity(Gravity.CENTER);
+        monthValue.setTextColor(Color.rgb(55, 75, 180));
+        card.addView(monthValue, new LinearLayout.LayoutParams(-1, dp(80)));
+
+        LinearLayout controls = new LinearLayout(this);
+        controls.setGravity(Gravity.CENTER);
+
+        Button minus = actionButton("−");
+        Button plus = actionButton("+");
+        controls.addView(minus, new LinearLayout.LayoutParams(dp(90), dp(60)));
+        controls.addView(plus, new LinearLayout.LayoutParams(dp(90), dp(60)));
+        card.addView(controls);
+
+        monthsPage.addView(card, new LinearLayout.LayoutParams(-1, dp(260)));
+
+        memberCount = label("", 17);
+        memberCount.setGravity(Gravity.CENTER);
+        monthsPage.addView(memberCount, new LinearLayout.LayoutParams(-1, dp(60)));
+
+        Button next = actionButton("Continue to Members  →");
+        monthsPage.addView(next, new LinearLayout.LayoutParams(-1, dp(62)));
+
+        minus.setOnClickListener(v -> changeMonths(-1));
+        plus.setOnClickListener(v -> changeMonths(1));
+        next.setOnClickListener(v -> showPage("members"));
     }
 
-    void showMembersPage() {
-        pageSpinner.setVisibility(View.GONE);
-        pageMembers.setVisibility(View.VISIBLE);
-        spinnerTab.setEnabled(true);
-        membersTab.setEnabled(false);
-        refresh();
-    }
+    void changeMonths(int amount) {
+        int n = selectedMonths + amount;
+        if (n < 1) n = 1;
+        if (n > 60) n = 60;
 
-    void setMonths() {
-        try {
-            int n = Integer.parseInt(monthsInput.getText().toString().trim());
-            if (n < 1) {
-                Toast.makeText(this, "Enter at least 1 month", Toast.LENGTH_SHORT).show();
-                return;
-            }
-
-            if (!all.isEmpty()) {
-                new AlertDialog.Builder(this)
-                        .setTitle("Start new committee?")
-                        .setMessage("Changing the number of months will clear the current members and draw.")
-                        .setNegativeButton("Cancel", null)
-                        .setPositiveButton("Start New", (d, w) -> applyMonths(n))
-                        .show();
-            } else {
-                applyMonths(n);
-            }
-        } catch (Exception e) {
-            Toast.makeText(this, "Enter a valid number", Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    void applyMonths(int n) {
-        selectedMonths = n;
-        all.clear();
-        remaining.clear();
-        history.clear();
-        winner.setText("Ready");
-        save();
-        refresh();
-    }
-
-    void addName() {
-        String n = personInput.getText().toString().trim();
-        if (n.isEmpty()) return;
-
-        if (all.size() >= selectedMonths) {
-            Toast.makeText(this, "Maximum " + selectedMonths + " members allowed", Toast.LENGTH_SHORT).show();
+        if (!all.isEmpty() && n < all.size()) {
+            toast("First remove members above " + n);
             return;
         }
 
-        all.add(n);
-        remaining.add(n);
-        personInput.setText("");
-
-        wheel.setMembers(remaining);
-        refresh();
+        selectedMonths = n;
+        monthValue.setText(String.valueOf(selectedMonths));
         save();
+        refreshAll();
     }
 
-    void resetCommittee() {
-        remaining = new ArrayList<>(all);
-        history.clear();
-        winner.setText("Ready");
-        historyBox.removeAllViews();
-        wheel.stopAnimation();
-        wheel.setMembers(remaining);
-        spinning = false;
-        refresh();
+    void buildMembersPage() {
+        membersPage = page();
+
+        TextView title = label("👥  Add Members", 28);
+        title.setGravity(Gravity.CENTER);
+        membersPage.addView(title, new LinearLayout.LayoutParams(-1, dp(62)));
+
+        memberCount = label("", 16);
+        memberCount.setGravity(Gravity.CENTER);
+        membersPage.addView(memberCount);
+
+        LinearLayout addRow = new LinearLayout(this);
+        personInput = new EditText(this);
+        personInput.setHint("Member name");
+        personInput.setSingleLine(true);
+        addRow.addView(personInput, new LinearLayout.LayoutParams(0, dp(58), 1));
+
+        Button add = actionButton("Add");
+        addRow.addView(add, new LinearLayout.LayoutParams(dp(88), dp(58)));
+        membersPage.addView(addRow);
+
+        add.setOnClickListener(v -> addName());
+
+        ScrollView scroll = new ScrollView(this);
+        namesBox = new LinearLayout(this);
+        namesBox.setOrientation(LinearLayout.VERTICAL);
+        scroll.addView(namesBox);
+        membersPage.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
+
+        Button next = actionButton("Continue to Wheel  →");
+        membersPage.addView(next, new LinearLayout.LayoutParams(-1, dp(60)));
+        next.setOnClickListener(v -> {
+            if (all.size() != selectedMonths) {
+                toast("Add all " + selectedMonths + " members first");
+                return;
+            }
+            showPage("wheel");
+        });
+    }
+
+    void buildWheelPage() {
+        wheelPage = page();
+        wheelPage.setGravity(Gravity.CENTER_HORIZONTAL);
+
+        TextView title = label("🎡  Lucky Draw", 28);
+        title.setGravity(Gravity.CENTER);
+        wheelPage.addView(title, new LinearLayout.LayoutParams(-1, dp(62)));
+
+        wheelStatus = label("", 15);
+        wheelStatus.setGravity(Gravity.CENTER);
+        wheelPage.addView(wheelStatus, new LinearLayout.LayoutParams(-1, dp(40)));
+
+        wheel = new WheelView(this);
+        wheelPage.addView(wheel, new LinearLayout.LayoutParams(-1, 0, 1));
+
+        winnerText = label("Tap SPIN", 22);
+        winnerText.setGravity(Gravity.CENTER);
+        wheelPage.addView(winnerText, new LinearLayout.LayoutParams(-1, dp(70)));
+
+        TextView hint = label("Tap the SPIN button in the centre of the wheel", 13);
+        hint.setGravity(Gravity.CENTER);
+        wheelPage.addView(hint, new LinearLayout.LayoutParams(-1, dp(35)));
+    }
+
+    void buildHistoryPage() {
+        historyPage = page();
+
+        TextView title = label("📜  Draw History", 28);
+        title.setGravity(Gravity.CENTER);
+        historyPage.addView(title, new LinearLayout.LayoutParams(-1, dp(62)));
+
+        historyCount = label("", 15);
+        historyCount.setGravity(Gravity.CENTER);
+        historyPage.addView(historyCount);
+
+        ScrollView scroll = new ScrollView(this);
+        historyBox = new LinearLayout(this);
+        historyBox.setOrientation(LinearLayout.VERTICAL);
+        scroll.addView(historyBox);
+        historyPage.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
+
+        Button reset = actionButton("↻  Reset Draw");
+        historyPage.addView(reset, new LinearLayout.LayoutParams(-1, dp(60)));
+        reset.setOnClickListener(v -> resetDraw());
+    }
+
+    LinearLayout page() {
+        LinearLayout p = new LinearLayout(this);
+        p.setOrientation(LinearLayout.VERTICAL);
+        p.setPadding(dp(5), dp(5), dp(5), dp(5));
+        return p;
+    }
+
+    void showPage(String page) {
+        monthsPage.setVisibility(View.GONE);
+        membersPage.setVisibility(View.GONE);
+        wheelPage.setVisibility(View.GONE);
+        historyPage.setVisibility(View.GONE);
+
+        if (page.equals("months")) monthsPage.setVisibility(View.VISIBLE);
+        if (page.equals("members")) membersPage.setVisibility(View.VISIBLE);
+        if (page.equals("wheel")) wheelPage.setVisibility(View.VISIBLE);
+        if (page.equals("history")) historyPage.setVisibility(View.VISIBLE);
+
+        refreshAll();
+    }
+
+    void addName() {
+        String name = personInput.getText().toString().trim();
+
+        if (name.isEmpty()) return;
+
+        if (all.size() >= selectedMonths) {
+            toast("Maximum " + selectedMonths + " members allowed");
+            return;
+        }
+
+        all.add(name);
+        remaining.add(name);
+        personInput.setText("");
         save();
+        refreshAll();
+    }
+
+    void renameMember(String oldName, String newName) {
+        newName = newName.trim();
+
+        if (newName.isEmpty()) {
+            toast("Name cannot be empty");
+            return;
+        }
+
+        int i = all.indexOf(oldName);
+        if (i >= 0) all.set(i, newName);
+
+        int r = remaining.indexOf(oldName);
+        if (r >= 0) remaining.set(r, newName);
+
+        save();
+        refreshAll();
+    }
+
+    void deleteMember(String name) {
+        all.remove(name);
+        remaining.remove(name);
+        save();
+        refreshAll();
+    }
+
+    void refreshAll() {
+        if (monthValue != null) monthValue.setText(String.valueOf(selectedMonths));
+
+        if (memberCount != null) {
+            memberCount.setText("Members added: " + all.size() + " / " + selectedMonths);
+        }
+
+        if (wheelStatus != null) {
+            if (all.size() < selectedMonths) {
+                wheelStatus.setText("Add " + (selectedMonths - all.size()) + " more members");
+            } else if (remaining.size() <= 1) {
+                wheelStatus.setText("Final member remains");
+            } else {
+                wheelStatus.setText(remaining.size() + " members remaining");
+            }
+        }
+
+        if (historyCount != null) {
+            historyCount.setText("Draws completed: " + history.size());
+        }
+
+        if (wheel != null) wheel.setMembers(remaining);
+
+        refreshMembers();
+        refreshHistory();
+    }
+
+    void refreshMembers() {
+        if (namesBox == null) return;
+
+        namesBox.removeAllViews();
+
+        for (int i = 0; i < all.size(); i++) {
+            final String original = all.get(i);
+
+            LinearLayout row = new LinearLayout(this);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+
+            TextView number = label(String.valueOf(i + 1), 17);
+            number.setGravity(Gravity.CENTER);
+            row.addView(number, new LinearLayout.LayoutParams(dp(42), dp(56)));
+
+            EditText name = new EditText(this);
+            name.setText(original);
+            name.setTextSize(17);
+            name.setSingleLine(true);
+            row.addView(name, new LinearLayout.LayoutParams(0, dp(56), 1));
+
+            Button saveName = navButton("Save");
+            Button del = navButton("Delete");
+            row.addView(saveName, new LinearLayout.LayoutParams(dp(68), dp(56)));
+            row.addView(del, new LinearLayout.LayoutParams(dp(78), dp(56)));
+
+            saveName.setOnClickListener(v ->
+                    renameMember(original, name.getText().toString()));
+
+            del.setOnClickListener(v -> deleteMember(original));
+
+            namesBox.addView(row);
+        }
+    }
+
+    void refreshHistory() {
+        if (historyBox == null) return;
+
+        historyBox.removeAllViews();
+
+        if (history.isEmpty()) {
+            TextView empty = label("No draws yet.", 17);
+            empty.setGravity(Gravity.CENTER);
+            historyBox.addView(empty);
+            return;
+        }
+
+        for (String item : history) {
+            TextView h = label(item, 18);
+            historyBox.addView(h);
+        }
     }
 
     void spin() {
         if (spinning) return;
 
-        if (all.size() < selectedMonths) {
-            Toast.makeText(this, "Add all " + selectedMonths + " members first", Toast.LENGTH_SHORT).show();
-            showMembersPage();
+        if (all.size() != selectedMonths) {
+            toast("Add all " + selectedMonths + " members first");
             return;
         }
 
-        // The last remaining person is never spun.
         if (remaining.size() <= 1) {
-            if (remaining.size() == 1) showFinalMember(remaining.get(0));
+            if (remaining.size() == 1) showWinner(remaining.get(0));
             return;
         }
 
         spinning = true;
-        
 
-        final int selectedIndex = random.nextInt(remaining.size());
-        final String selectedName = remaining.get(selectedIndex);
+        int index = random.nextInt(remaining.size());
+        String chosen = remaining.get(index);
 
-        wheel.spinTo(selectedIndex, () -> {
-            // Remove exactly the selected member after the animation finishes.
-            remaining.remove(selectedName);
+        wheel.spinTo(index, () -> {
+            remaining.remove(chosen);
 
-            history.add((history.size() + 1) + ". " + selectedName);
-            winner.setText("🏆 " + selectedName);
+            history.add((history.size() + 1) + ".  " + chosen);
 
-            historyBox.addView(tv(
-                    history.get(history.size() - 1), 18
-            ));
-
-            save();
-            refresh();
-
+            winnerText.setText("🏆  " + chosen);
             spinning = false;
 
-            if (remaining.size() <= 1) {
-                
-            } else {
-                
-            }
-
-            showWinnerAnimation(selectedName);
+            save();
+            refreshAll();
+            showWinner(chosen);
         });
     }
 
-    void showFinalMember(String name) {
-        winner.setText("🏆 " + name);
-        showWinnerAnimation(name);
-    }
-
-    void showWinnerAnimation(String name) {
-        final Dialog dialog = new Dialog(this);
-        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+    void showWinner(String name) {
+        final Dialog d = new Dialog(this);
+        d.requestWindowFeature(Window.FEATURE_NO_TITLE);
 
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
         box.setGravity(Gravity.CENTER);
-        box.setPadding(dp(18), dp(18), dp(18), dp(18));
-        box.setBackgroundColor(Color.rgb(18, 18, 28));
+        box.setPadding(dp(25), dp(25), dp(25), dp(25));
+        box.setBackgroundColor(Color.rgb(20, 22, 32));
 
-        TextView title = tv("🎉  WINNER  🎉", 30);
-        title.setGravity(Gravity.CENTER);
+        TextView star = label("✨", 58);
+        star.setGravity(Gravity.CENTER);
+
+        TextView title = label("WINNER", 32);
         title.setTextColor(Color.WHITE);
+        title.setGravity(Gravity.CENTER);
 
-        TextView nameView = tv(name, 44);
-        nameView.setGravity(Gravity.CENTER);
-        nameView.setTextColor(Color.WHITE);
-        nameView.setPadding(dp(8), dp(35), dp(8), dp(35));
+        TextView n = label(name, 42);
+        n.setTextColor(Color.WHITE);
+        n.setGravity(Gravity.CENTER);
+        n.setPadding(0, dp(25), 0, dp(30));
 
-        Button close = btn("CONTINUE");
-        close.setTextSize(17);
-        close.setOnClickListener(v -> dialog.dismiss());
+        Button ok = actionButton("Continue");
+        ok.setOnClickListener(v -> d.dismiss());
 
-        box.addView(title, new LinearLayout.LayoutParams(-1, dp(70)));
-        box.addView(nameView, new LinearLayout.LayoutParams(-1, dp(150)));
-        box.addView(close, new LinearLayout.LayoutParams(-1, dp(58)));
+        box.addView(star);
+        box.addView(title);
+        box.addView(n);
+        box.addView(ok, new LinearLayout.LayoutParams(-1, dp(58)));
 
-        dialog.setContentView(box);
-        dialog.setOnShowListener(x -> {
-            Window w = dialog.getWindow();
-            if (w != null) {
-                w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-                w.setLayout(-1, -1);
-            }
+        d.setContentView(box);
+        d.show();
 
-            title.setAlpha(0f);
-            title.animate().alpha(1f).setDuration(450).start();
-
-            nameView.setAlpha(0f);
-            nameView.setScaleX(.2f);
-            nameView.setScaleY(.2f);
-            nameView.animate()
-                    .alpha(1f)
-                    .scaleX(1f)
-                    .scaleY(1f)
-                    .setDuration(850)
-                    .setInterpolator(new OvershootInterpolator())
-                    .start();
-        });
-
-        dialog.show();
-
-        Window w = dialog.getWindow();
+        Window w = d.getWindow();
         if (w != null) {
             w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
             w.setLayout(-1, -1);
         }
+
+        n.setAlpha(0f);
+        n.setScaleX(.2f);
+        n.setScaleY(.2f);
+        n.animate()
+                .alpha(1f)
+                .scaleX(1f)
+                .scaleY(1f)
+                .setDuration(750)
+                .setInterpolator(new OvershootInterpolator())
+                .start();
     }
 
-    void refresh() {
-        if (namesBox == null) return;
-
-        if (monthsInput != null) monthsInput.setText(String.valueOf(selectedMonths));
-
-        namesBox.removeAllViews();
-
-        for (int i = 0; i < all.size(); i++) {
-            final String originalName = all.get(i);
-
-            LinearLayout row = new LinearLayout(this);
-            row.setGravity(Gravity.CENTER_VERTICAL);
-            row.setPadding(dp(5), dp(2), dp(5), dp(2));
-
-            // Number instead of a dot.
-            TextView number = tv(String.valueOf(i + 1), 18);
-            number.setGravity(Gravity.CENTER);
-            row.addView(number, new LinearLayout.LayoutParams(dp(38), dp(50)));
-
-            // Editable member name.
-            EditText nameEdit = new EditText(this);
-            nameEdit.setText(originalName);
-            nameEdit.setTextSize(17);
-            nameEdit.setSingleLine(true);
-            nameEdit.setPadding(dp(6), 0, dp(6), 0);
-            row.addView(nameEdit, new LinearLayout.LayoutParams(0, dp(50), 1));
-
-            Button saveName = btn("Save");
-            row.addView(saveName, new LinearLayout.LayoutParams(dp(70), dp(50)));
-
-            Button del = btn("Delete");
-            row.addView(del, new LinearLayout.LayoutParams(dp(80), dp(50)));
-
-            saveName.setOnClickListener(v -> {
-                String newName = nameEdit.getText().toString().trim();
-
-                if (newName.isEmpty()) {
-                    Toast.makeText(MainActivity.this,
-                            "Name cannot be empty",
-                            Toast.LENGTH_SHORT).show();
-                    nameEdit.setText(originalName);
-                    return;
-                }
-
-                int idx = all.indexOf(originalName);
-                if (idx >= 0) {
-                    all.set(idx, newName);
-
-                    // If this member is still on the wheel, rename it there too.
-                    int ridx = remaining.indexOf(originalName);
-                    if (ridx >= 0) {
-                        remaining.set(ridx, newName);
-                    }
-
-                    save();
-                    refresh();
-                }
-            });
-
-            del.setOnClickListener(v -> {
-                all.remove(originalName);
-                remaining.remove(originalName);
-                save();
-                refresh();
-            });
-
-            namesBox.addView(row);
-        }
+    void resetDraw() {
+        remaining = new ArrayList<>(all);
+        history.clear();
+        spinning = false;
+        winnerText.setText("Tap SPIN");
+        wheel.stopAnimation();
+        save();
+        refreshAll();
     }
 
     void save() {
@@ -426,143 +505,150 @@ public class MainActivity extends Activity {
     void load() {
         android.content.SharedPreferences p = getPreferences(0);
 
-        selectedMonths = p.getInt("months", 10);
+        selectedMonths = p.getInt("months", 12);
 
         String a = p.getString("all", "");
         String r = p.getString("remaining", "");
         String h = p.getString("history", "");
 
-        if (!a.isEmpty())
-            all.addAll(Arrays.asList(a.split("\u001F", -1)));
+        if (!a.isEmpty()) all.addAll(Arrays.asList(a.split("\u001F", -1)));
+        if (!r.isEmpty()) remaining.addAll(Arrays.asList(r.split("\u001F", -1)));
+        if (!h.isEmpty()) history.addAll(Arrays.asList(h.split("\u001F", -1)));
 
-        if (!r.isEmpty())
-            remaining.addAll(Arrays.asList(r.split("\u001F", -1)));
-
-        if (!h.isEmpty()) {
-            for (String s : h.split("\u001F", -1)) {
-                history.add(s);
-                historyBox.addView(tv(s, 18));
-            }
+        if (remaining.isEmpty() && !all.isEmpty()) {
+            remaining = new ArrayList<>(all);
         }
-
-        wheel.setMembers(remaining);
-        refresh();
-
     }
 
-    // =========================================================
+    void toast(String s) {
+        Toast.makeText(this, s, Toast.LENGTH_SHORT).show();
+    }
+
+    // ============================================================
     // Animated wheel
-    // =========================================================
+    // ============================================================
     public class WheelView extends View {
 
         Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        ArrayList<String> members = new ArrayList<>();
 
-        float wheelRotation = 0f;
-        ValueAnimator activeAnimator;
-        Runnable spinFinished;
+        ArrayList<String> members = new ArrayList<>();
+        ValueAnimator animator;
+        Runnable finishAction;
+        float rotation = 0f;
 
         int[] colors = {
-                Color.rgb(239,83,80),
-                Color.rgb(66,165,245),
-                Color.rgb(102,187,106),
-                Color.rgb(255,167,38),
-                Color.rgb(171,71,188),
-                Color.rgb(38,198,218),
-                Color.rgb(255,202,40),
-                Color.rgb(236,64,122)
+                Color.rgb(76, 60, 190),
+                Color.rgb(31, 125, 205),
+                Color.rgb(0, 145, 125),
+                Color.rgb(235, 120, 15),
+                Color.rgb(190, 45, 55),
+                Color.rgb(120, 45, 155),
+                Color.rgb(25, 105, 175),
+                Color.rgb(50, 130, 65),
+                Color.rgb(220, 85, 15),
+                Color.rgb(165, 25, 90)
         };
 
-        public WheelView(Context c) {
+        WheelView(Context c) {
             super(c);
-            paint.setStyle(Paint.Style.FILL);
-            textPaint.setColor(Color.WHITE);
-            textPaint.setTypeface(Typeface.DEFAULT_BOLD);
             setLayerType(View.LAYER_TYPE_SOFTWARE, null);
+            setClickable(true);
+            textPaint.setTypeface(Typeface.DEFAULT_BOLD);
         }
 
         void setMembers(ArrayList<String> list) {
             members = new ArrayList<>(list);
-            if (members.size() == 0) wheelRotation = 0f;
             invalidate();
         }
 
-        void stopAnimation() {
-            if (activeAnimator != null) {
-                activeAnimator.cancel();
-                activeAnimator = null;
+        boolean canSpin() {
+            return !spinning && all.size() == selectedMonths && members.size() > 1;
+        }
+
+        @Override
+        public boolean onTouchEvent(android.view.MotionEvent e) {
+            if (e.getAction() == MotionEvent.ACTION_UP) {
+                float cx = getWidth() / 2f;
+                float cy = getHeight() / 2f;
+                float dx = e.getX() - cx;
+                float dy = e.getY() - cy;
+
+                if (Math.sqrt(dx * dx + dy * dy) <= dp(48) && canSpin()) {
+                    performClick();
+                    MainActivity.this.spin();
+                    return true;
+                }
             }
-            spinFinished = null;
+            return true;
+        }
+
+        @Override
+        public boolean performClick() {
+            super.performClick();
+            return true;
         }
 
         void spinTo(int index, Runnable done) {
-            if (members.size() < 2) {
-                if (done != null) done.run();
-                return;
-            }
+            if (members.size() < 2) return;
 
-            stopAnimation();
-            spinFinished = done;
+            if (animator != null) animator.cancel();
+
+            finishAction = done;
 
             float slice = 360f / members.size();
-            float centerAngle = (index + .5f) * slice;
+            float target = (360f - ((index + .5f) * slice)) % 360f;
 
-            // Pointer is at the top (-90 degrees).
-            float desired = 360f - centerAngle;
-            desired %= 360f;
-            if (desired < 0) desired += 360f;
+            float current = rotation % 360f;
+            if (current < 0) current += 360f;
 
-            float currentMod = wheelRotation % 360f;
-            if (currentMod < 0) currentMod += 360f;
-
-            float delta = desired - currentMod;
+            float delta = target - current;
             if (delta < 0) delta += 360f;
 
-            final float start = wheelRotation;
-            final float end = wheelRotation + 360f * 8f + delta;
+            final float start = rotation;
+            final float end = rotation + (360f * 8f) + delta;
 
-            activeAnimator = ValueAnimator.ofFloat(start, end);
-            activeAnimator.setDuration(5200);
-            activeAnimator.setInterpolator(new DecelerateInterpolator(2.8f));
+            animator = ValueAnimator.ofFloat(start, end);
+            animator.setDuration(5200);
+            animator.setInterpolator(new DecelerateInterpolator(2.6f));
 
-            activeAnimator.addUpdateListener(a -> {
-                wheelRotation = (Float)a.getAnimatedValue();
+            animator.addUpdateListener(a -> {
+                rotation = (Float) a.getAnimatedValue();
                 invalidate();
             });
 
-            activeAnimator.addListener(new AnimatorListenerAdapter() {
-                boolean called = false;
+            animator.addListener(new AnimatorListenerAdapter() {
+                @Override
+                public void onAnimationEnd(Animator a) {
+                    if (animator != a) return;
 
-                void finishOnce() {
-                    if (called) return;
-                    called = true;
-
-                    activeAnimator = null;
-                    wheelRotation = end % 360f;
+                    animator = null;
+                    rotation = end % 360f;
                     invalidate();
 
-                    if (spinFinished != null) {
-                        Runnable r = spinFinished;
-                        spinFinished = null;
+                    if (finishAction != null) {
+                        Runnable r = finishAction;
+                        finishAction = null;
                         r.run();
                     }
                 }
 
                 @Override
-                public void onAnimationEnd(Animator animation) {
-                    finishOnce();
-                }
-
-                @Override
-                public void onAnimationCancel(Animator animation) {
-                    // A cancelled animation must not select a member.
-                    activeAnimator = null;
-                    spinFinished = null;
+                public void onAnimationCancel(Animator a) {
+                    if (animator == a) {
+                        animator = null;
+                        finishAction = null;
+                    }
                 }
             });
 
-            activeAnimator.start();
+            animator.start();
+        }
+
+        void stopAnimation() {
+            if (animator != null) animator.cancel();
+            animator = null;
+            finishAction = null;
         }
 
         @Override
@@ -570,78 +656,73 @@ public class MainActivity extends Activity {
             super.onDraw(canvas);
 
             float cx = getWidth() / 2f;
-            float cy = getHeight() / 2f + dp(10);
-            float radius = Math.min(getWidth(), getHeight()) * .42f;
+            float cy = getHeight() / 2f;
+            float radius = Math.min(getWidth(), getHeight()) * .40f;
 
             paint.setStyle(Paint.Style.FILL);
-            paint.setColor(Color.DKGRAY);
+            paint.setColor(Color.rgb(50, 52, 62));
+            paint.setShadowLayer(dp(12), 0, dp(6), 0x55000000);
             canvas.drawCircle(cx, cy, radius + dp(8), paint);
+            paint.clearShadowLayer();
 
             if (members.isEmpty()) {
-                paint.setColor(Color.LTGRAY);
+                paint.setColor(Color.rgb(225, 227, 235));
                 canvas.drawCircle(cx, cy, radius, paint);
+            } else {
+                float slice = 360f / members.size();
+                RectF rect = new RectF(cx-radius, cy-radius, cx+radius, cy+radius);
 
-                textPaint.setTextAlign(Paint.Align.CENTER);
-                textPaint.setTextSize(dp(18));
-                textPaint.setColor(Color.DKGRAY);
-                canvas.drawText("Add members", cx, cy + dp(6), textPaint);
+                canvas.save();
+                canvas.rotate(rotation, cx, cy);
 
-                drawPointer(canvas, cx, cy, radius);
-                return;
+                for (int i = 0; i < members.size(); i++) {
+                    float start = -90f + i * slice;
+
+                    paint.setStyle(Paint.Style.FILL);
+                    paint.setColor(colors[i % colors.length]);
+                    canvas.drawArc(rect, start, slice, true, paint);
+
+                    paint.setStyle(Paint.Style.STROKE);
+                    paint.setStrokeWidth(dp(2));
+                    paint.setColor(0x99FFFFFF);
+                    canvas.drawArc(rect, start, slice, true, paint);
+
+                    drawMember(canvas, members.get(i), cx, cy, radius,
+                            start + slice / 2f);
+                }
+
+                canvas.restore();
             }
 
-            float slice = 360f / members.size();
-            RectF rect = new RectF(
-                    cx - radius, cy - radius,
-                    cx + radius, cy + radius
-            );
-
-            canvas.save();
-            canvas.rotate(wheelRotation, cx, cy);
-
-            for (int i = 0; i < members.size(); i++) {
-                float start = -90f + i * slice;
-
-                paint.setStyle(Paint.Style.FILL);
-                paint.setColor(colors[i % colors.length]);
-                canvas.drawArc(rect, start, slice, true, paint);
-
-                paint.setStyle(Paint.Style.STROKE);
-                paint.setStrokeWidth(dp(2));
-                paint.setColor(Color.WHITE);
-                canvas.drawArc(rect, start, slice, true, paint);
-
-                drawMemberText(
-                        canvas,
-                        members.get(i),
-                        cx, cy, radius,
-                        start + slice / 2f
-                );
-            }
-
-            canvas.restore();
-
+            // Center SPIN control
             paint.setStyle(Paint.Style.FILL);
             paint.setColor(Color.WHITE);
-            canvas.drawCircle(cx, cy, dp(34), paint);
+            paint.setShadowLayer(dp(8), 0, dp(3), 0x66000000);
+            canvas.drawCircle(cx, cy, dp(48), paint);
+            paint.clearShadowLayer();
 
-            paint.setStyle(Paint.Style.STROKE);
-            paint.setStrokeWidth(dp(3));
-            paint.setColor(Color.DKGRAY);
-            canvas.drawCircle(cx, cy, dp(34), paint);
-            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(Color.rgb(30, 32, 42));
+            canvas.drawCircle(cx, cy, dp(38), paint);
 
+            textPaint.setColor(Color.WHITE);
             textPaint.setTextAlign(Paint.Align.CENTER);
             textPaint.setTextSize(dp(13));
-            textPaint.setColor(Color.DKGRAY);
             canvas.drawText("SPIN", cx, cy + dp(5), textPaint);
 
-            drawPointer(canvas, cx, cy, radius);
+            // Fixed pointer at the top.
+            Path pointer = new Path();
+            pointer.moveTo(cx - dp(18), dp(5));
+            pointer.lineTo(cx + dp(18), dp(5));
+            pointer.lineTo(cx, dp(38));
+            pointer.close();
+
+            paint.setColor(Color.rgb(25, 25, 32));
+            paint.setStyle(Paint.Style.FILL);
+            canvas.drawPath(pointer, paint);
         }
 
-        void drawMemberText(Canvas canvas, String name,
-                            float cx, float cy, float radius,
-                            float angle) {
+        void drawMember(Canvas canvas, String name, float cx, float cy,
+                        float radius, float angle) {
 
             double rad = Math.toRadians(angle);
             float tx = cx + (float)Math.cos(rad) * radius * .63f;
@@ -651,41 +732,19 @@ public class MainActivity extends Activity {
             canvas.rotate(angle + 90f, tx, ty);
 
             textPaint.setColor(Color.WHITE);
-            textPaint.setTextSize(
-                    members.size() > 18 ? dp(9) :
-                    members.size() > 12 ? dp(11) :
-                    dp(14)
-            );
-            textPaint.setTypeface(Typeface.DEFAULT_BOLD);
             textPaint.setTextAlign(Paint.Align.CENTER);
 
+            int size = 14;
+            if (members.size() > 15) size = 11;
+            if (members.size() > 25) size = 9;
+
+            textPaint.setTextSize(dp(size));
+
             String shown = name;
-            if (shown.length() > 15) {
-                shown = shown.substring(0, 14) + "…";
-            }
+            if (shown.length() > 14) shown = shown.substring(0, 13) + "…";
 
             canvas.drawText(shown, tx, ty, textPaint);
             canvas.restore();
-        }
-
-        void drawPointer(Canvas canvas, float cx, float cy, float radius) {
-            Path p = new Path();
-            float top = cy - radius - dp(2);
-
-            p.moveTo(cx - dp(18), top - dp(3));
-            p.lineTo(cx + dp(18), top - dp(3));
-            p.lineTo(cx, top + dp(31));
-            p.close();
-
-            paint.setStyle(Paint.Style.FILL);
-            paint.setColor(Color.BLACK);
-            canvas.drawPath(p, paint);
-
-            paint.setStyle(Paint.Style.STROKE);
-            paint.setStrokeWidth(dp(2));
-            paint.setColor(Color.WHITE);
-            canvas.drawPath(p, paint);
-            paint.setStyle(Paint.Style.FILL);
         }
     }
 }
