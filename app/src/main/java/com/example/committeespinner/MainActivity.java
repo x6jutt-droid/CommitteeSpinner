@@ -1,5 +1,5 @@
 package com.example.committeespinner;
-import android.os.Bundle;
+
 import android.animation.*;
 import android.app.*;
 import android.content.*;
