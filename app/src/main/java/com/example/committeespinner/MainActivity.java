@@ -14,7 +14,7 @@ import java.util.*;
 public class MainActivity extends Activity {
 
     LinearLayout root, pageSpinner, pageMembers, namesBox, historyBox;
-    EditText personInput;
+    EditText monthsInput, personInput;
     TextView winner;
     WheelView wheel;
     Button spinButton, spinnerTab, membersTab;
@@ -24,6 +24,7 @@ public class MainActivity extends Activity {
     ArrayList<String> history = new ArrayList<>();
 
     Random random = new Random();
+    int selectedMonths = 10;
     boolean spinning = false;
 
     int dp(float n) {
@@ -81,12 +82,6 @@ public class MainActivity extends Activity {
         winner.setGravity(Gravity.CENTER);
         pageSpinner.addView(winner, new LinearLayout.LayoutParams(-1, dp(62)));
 
-        spinButton = btn("🎯  SPIN (or tap wheel center)");
-        spinButton.setTextSize(18);
-        pageSpinner.addView(spinButton, new LinearLayout.LayoutParams(-1, dp(64)));
-
-        spinButton.setOnClickListener(v -> spin());
-
         root.addView(pageSpinner, new LinearLayout.LayoutParams(-1, 0, 1));
 
         pageMembers = new LinearLayout(this);
@@ -95,6 +90,29 @@ public class MainActivity extends Activity {
         TextView membersTitle = tv("👥 Committee Members", 25);
         membersTitle.setGravity(Gravity.CENTER);
         pageMembers.addView(membersTitle);
+
+        LinearLayout monthCard = new LinearLayout(this);
+        monthCard.setOrientation(LinearLayout.VERTICAL);
+        monthCard.setPadding(dp(12), dp(8), dp(12), dp(8));
+        monthCard.setBackgroundColor(Color.WHITE);
+
+        TextView monthTitle = tv("Number of months / members", 15);
+        monthCard.addView(monthTitle);
+
+        LinearLayout monthRow = new LinearLayout(this);
+        monthsInput = new EditText(this);
+        monthsInput.setHint("e.g. 12");
+        monthsInput.setInputType(2);
+        monthsInput.setSingleLine(true);
+        monthRow.addView(monthsInput, new LinearLayout.LayoutParams(0, dp(54), 1));
+
+        Button setMonthsButton = btn("Set");
+        monthRow.addView(setMonthsButton, new LinearLayout.LayoutParams(dp(85), dp(54)));
+        monthCard.addView(monthRow);
+
+        p.addView(monthCard, new LinearLayout.LayoutParams(-1, dp(130)));
+
+        setMonthsButton.setOnClickListener(v -> setMonths());
 
         LinearLayout add = new LinearLayout(this);
         personInput = new EditText(this);
@@ -152,9 +170,47 @@ public class MainActivity extends Activity {
         refresh();
     }
 
+    void setMonths() {
+        try {
+            int n = Integer.parseInt(monthsInput.getText().toString().trim());
+            if (n < 1) {
+                Toast.makeText(this, "Enter at least 1 month", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            if (!all.isEmpty()) {
+                new AlertDialog.Builder(this)
+                        .setTitle("Start new committee?")
+                        .setMessage("Changing the number of months will clear the current members and draw.")
+                        .setNegativeButton("Cancel", null)
+                        .setPositiveButton("Start New", (d, w) -> applyMonths(n))
+                        .show();
+            } else {
+                applyMonths(n);
+            }
+        } catch (Exception e) {
+            Toast.makeText(this, "Enter a valid number", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    void applyMonths(int n) {
+        selectedMonths = n;
+        all.clear();
+        remaining.clear();
+        history.clear();
+        winner.setText("Ready");
+        save();
+        refreshAll();
+    }
+
     void addName() {
         String n = personInput.getText().toString().trim();
         if (n.isEmpty()) return;
+
+        if (all.size() >= selectedMonths) {
+            Toast.makeText(this, "Maximum " + selectedMonths + " members allowed", Toast.LENGTH_SHORT).show();
+            return;
+        }
 
         all.add(n);
         remaining.add(n);
@@ -181,6 +237,12 @@ public class MainActivity extends Activity {
     void spin() {
         if (spinning) return;
 
+        if (all.size() < selectedMonths) {
+            Toast.makeText(this, "Add all " + selectedMonths + " members first", Toast.LENGTH_SHORT).show();
+            showMembersPage();
+            return;
+        }
+
         // The last remaining person is never spun.
         if (remaining.size() <= 1) {
             if (remaining.size() == 1) showFinalMember(remaining.get(0));
@@ -188,7 +250,7 @@ public class MainActivity extends Activity {
         }
 
         spinning = true;
-        spinButton.setEnabled(false);
+        
 
         final int selectedIndex = random.nextInt(remaining.size());
         final String selectedName = remaining.get(selectedIndex);
@@ -210,9 +272,9 @@ public class MainActivity extends Activity {
             spinning = false;
 
             if (remaining.size() <= 1) {
-                spinButton.setEnabled(false);
+                
             } else {
-                spinButton.setEnabled(true);
+                
             }
 
             showWinnerAnimation(selectedName);
@@ -288,29 +350,63 @@ public class MainActivity extends Activity {
 
         namesBox.removeAllViews();
 
-        for (String n : new ArrayList<>(all)) {
-            LinearLayout row = new LinearLayout(this);
+        for (int i = 0; i < all.size(); i++) {
+            final String originalName = all.get(i);
 
-            TextView status = tv(
-                    (remaining.contains(n) ? "• " : "✓ ") + n,
-                    18
-            );
-            row.addView(status, new LinearLayout.LayoutParams(0, dp(48), 1));
+            LinearLayout row = new LinearLayout(this);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setPadding(dp(5), dp(2), dp(5), dp(2));
+
+            // Number instead of a dot.
+            TextView number = tv(String.valueOf(i + 1), 18);
+            number.setGravity(Gravity.CENTER);
+            row.addView(number, new LinearLayout.LayoutParams(dp(38), dp(50)));
+
+            // Editable member name.
+            EditText nameEdit = new EditText(this);
+            nameEdit.setText(originalName);
+            nameEdit.setTextSize(17);
+            nameEdit.setSingleLine(true);
+            nameEdit.setPadding(dp(6), 0, dp(6), 0);
+            row.addView(nameEdit, new LinearLayout.LayoutParams(0, dp(50), 1));
+
+            Button saveName = btn("Save");
+            row.addView(saveName, new LinearLayout.LayoutParams(dp(70), dp(50)));
 
             Button del = btn("Delete");
-            row.addView(del, new LinearLayout.LayoutParams(dp(90), dp(48)));
+            row.addView(del, new LinearLayout.LayoutParams(dp(80), dp(50)));
+
+            saveName.setOnClickListener(v -> {
+                String newName = nameEdit.getText().toString().trim();
+
+                if (newName.isEmpty()) {
+                    Toast.makeText(MainActivity.this,
+                            "Name cannot be empty",
+                            Toast.LENGTH_SHORT).show();
+                    nameEdit.setText(originalName);
+                    return;
+                }
+
+                int idx = all.indexOf(originalName);
+                if (idx >= 0) {
+                    all.set(idx, newName);
+
+                    // If this member is still on the wheel, rename it there too.
+                    int ridx = remaining.indexOf(originalName);
+                    if (ridx >= 0) {
+                        remaining.set(ridx, newName);
+                    }
+
+                    save();
+                    refresh();
+                }
+            });
 
             del.setOnClickListener(v -> {
-                all.remove(n);
-                remaining.remove(n);
-                wheel.setMembers(remaining);
-                if (remaining.size() > 1 && !spinning) {
-                    spinButton.setEnabled(true);
-                } else if (remaining.size() <= 1) {
-                    spinButton.setEnabled(false);
-                }
-                refresh();
+                all.remove(originalName);
+                remaining.remove(originalName);
                 save();
+                refresh();
             });
 
             namesBox.addView(row);
@@ -348,8 +444,8 @@ public class MainActivity extends Activity {
         wheel.setMembers(remaining);
         refresh();
 
-        if (remaining.size() > 1) spinButton.setEnabled(true);
-        else spinButton.setEnabled(false);
+        if (remaining.size() > 1) 
+        else 
     }
 
     // =========================================================
@@ -422,11 +518,11 @@ public class MainActivity extends Activity {
             if (delta < 0) delta += 360f;
 
             final float start = wheelRotation;
-            final float end = wheelRotation + 360f * 7f + delta;
+            final float end = wheelRotation + 360f * 8f + delta;
 
             activeAnimator = ValueAnimator.ofFloat(start, end);
-            activeAnimator.setDuration(3500);
-            activeAnimator.setInterpolator(new DecelerateInterpolator(2.0f));
+            activeAnimator.setDuration(5200);
+            activeAnimator.setInterpolator(new DecelerateInterpolator(2.8f));
 
             activeAnimator.addUpdateListener(a -> {
                 wheelRotation = (Float)a.getAnimatedValue();
@@ -465,32 +561,6 @@ public class MainActivity extends Activity {
             });
 
             activeAnimator.start();
-        }
-
-        @Override
-        public boolean onTouchEvent(android.view.MotionEvent event) {
-            if (event.getAction() == android.view.MotionEvent.ACTION_UP) {
-                float cx = getWidth() / 2f;
-                float cy = getHeight() / 2f + dp(10);
-
-                float dx = event.getX() - cx;
-                float dy = event.getY() - cy;
-                float distance = (float)Math.sqrt(dx * dx + dy * dy);
-
-                // The center "SPIN" button is clickable.
-                if (distance <= dp(38) && !spinning && remaining.size() > 1) {
-                    MainActivity.this.spin();
-                    performClick();
-                    return true;
-                }
-            }
-            return true;
-        }
-
-        @Override
-        public boolean performClick() {
-            super.performClick();
-            return true;
         }
 
         @Override
