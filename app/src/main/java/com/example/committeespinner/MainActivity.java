@@ -82,6 +82,13 @@ public class MainActivity extends Activity {
         buildWheelPage();
         buildHistoryPage();
 
+        // Attach all four pages to the content container.
+        // showPage() controls which page is visible.
+        content.addView(monthsPage, new LinearLayout.LayoutParams(-1, -1));
+        content.addView(membersPage, new LinearLayout.LayoutParams(-1, -1));
+        content.addView(wheelPage, new LinearLayout.LayoutParams(-1, -1));
+        content.addView(historyPage, new LinearLayout.LayoutParams(-1, -1));
+
         LinearLayout nav = new LinearLayout(this);
         nav.setOrientation(LinearLayout.HORIZONTAL);
         nav.setPadding(0, dp(6), 0, 0);
